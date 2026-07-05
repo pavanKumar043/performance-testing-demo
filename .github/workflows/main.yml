@@ -24,21 +24,24 @@ jobs:
 
       - name: Check Performance Thresholds
         run: |
-          # Calculate Total Requests vs Errors
-          # JMeter JTL files mark success as 'true' and failure as 'false'
-          TOTAL=$(grep -c "," results.jtl || echo 0)
-          ERRORS=$(grep -c "false" results.jtl || echo 0)
+          # 1. Count occurrences of sample result headers/data
+          # We use tr -d to strip all whitespace and ensure a clean integer
+          TOTAL=$(grep -c "<httpSample" results.jtl | tr -d '[:space:]' || echo 0)
+          ERRORS=$(grep -c 's="false"' results.jtl | tr -d '[:space:]' || echo 0)
           
-          if [ $TOTAL -gt 0 ]; then
-            PERCENT=$((ERRORS * 100 / TOTAL))
-            echo "Current Error rate is: $PERCENT%"
-            
-            if [ $PERCENT -ge 20 ]; then
-              echo "Error rate exceeded 20%! Failing the build."
-              exit 1
-            fi
-          else
-            echo "No requests were recorded. Check your JMX file."
+          # 2. Check if variables are valid integers
+          if [ -z "$TOTAL" ] || [ "$TOTAL" -eq 0 ]; then
+             echo "FAIL: No test samples found. Check if JMeter actually ran."
+             exit 1
+          fi
+          
+          # 3. Calculate percentage using clean variables
+          PERCENT=$((ERRORS * 100 / TOTAL))
+          echo "Total samples: $TOTAL"
+          echo "Error rate: $PERCENT%"
+          
+          if [ "$PERCENT" -ge 20 ]; then
+            echo "FAIL: Error rate $PERCENT% exceeds 20%!"
             exit 1
           fi
 
