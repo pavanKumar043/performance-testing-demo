@@ -25,28 +25,34 @@ jobs:
 
       - name: Check Performance Thresholds
         run: |
-          # 1. Count Total Requests (CSV)
-          # We count lines that start with a timestamp (digits)
+          # 1. Count Total Requests and Errors (CSV)
           TOTAL=$(grep -c '^[0-9]' results.jtl || echo 0)
-          
-          # 2. Count Errors (CSV)
-          # In CSV, success=true or false, we look for 'false'
           ERRORS=$(grep -c ',false,' results.jtl || echo 0)
           
+          # 2. Calculate Avg Response Time
+          # We use awk to sum the 2nd column ($2) and divide by the total count
+          AVG_TIME=$(awk -F, 'NR > 1 {sum+=$2; count++} END {if (count > 0) print int(sum/count); else print 0}' results.jtl)
+
           # 3. Handle missing data
           if [ "$TOTAL" -eq 0 ]; then
             echo "FAIL: No results found in CSV. Check JMX execution."
             exit 1
           fi
 
-          # 4. Calculate Percentage
+          # 4. Calculate stats
           PERCENT=$((ERRORS * 100 / TOTAL))
           echo "Total Samples: $TOTAL"
           echo "Error Rate: $PERCENT%"
+          echo "Avg Response Time: ${AVG_TIME}ms"
           
-          # 5. Threshold Gate
+          # 5. Threshold Gates
           if [ "$PERCENT" -ge 20 ]; then
             echo "FAIL: Error rate $PERCENT% exceeds 20%!"
+            exit 1
+          fi
+          
+          if [ "$AVG_TIME" -gt 10 ]; then
+            echo "FAIL: Avg response time ${AVG_TIME}ms exceeds 10ms threshold!"
             exit 1
           fi
           
