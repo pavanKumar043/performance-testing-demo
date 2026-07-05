@@ -20,7 +20,7 @@ jobs:
 
       - name: Run Performance Test
         run: |
-          ./apache-jmeter-5.6.3/bin/jmeter -n -t test-plan.jmx -l results.jtl -e -o report/
+          ./apache-jmeter-5.6.3/bin/jmeter -n -t test-plan.jmx -l results.jtl -e -o report/ -Jjmeter.save.saveservice.output_format=xml
 
       - name: Check Performance Thresholds
         run: |
