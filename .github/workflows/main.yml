@@ -24,41 +24,39 @@ jobs:
 
       - name: Check Performance Thresholds
         run: |
-          # Count total sampleResult tags (XML format)
-          TOTAL=$(grep -c "sampleResult" results.jtl || echo 0)
+          # 1. Count occurrences of 'sampleResult'
+          # We use tr -d to remove any hidden characters or spaces
+          TOTAL=$(grep -c "sampleResult" results.jtl | tr -d '[:space:]' || echo 0)
           
-          # Count only failures
-          ERRORS=$(grep -c 's="false"' results.jtl || echo 0)
+          # 2. Count failures
+          ERRORS=$(grep -c 's="false"' results.jtl | tr -d '[:space:]' || echo 0)
           
-          # Calculate avg response time, default to 0 if no results found
-          AVG_TIME=$(awk -F't="' '/sampleResult/ {split($2,a,"\""); sum+=a[1]; count++} END {if (count > 0) print int(sum/count); else print 0}' results.jtl)
-
-          # Ensure TOTAL is treated as a number
-          if [ "$TOTAL" -gt 0 ]; then
-            PERCENT=$((ERRORS * 100 / TOTAL))
-            
-            echo "--- Performance Summary ---"
-            echo "Total Requests: $TOTAL"
-            echo "Error Rate: $PERCENT%"
-            echo "Avg Response Time: ${AVG_TIME}ms"
-            
-            # Threshold Check: Error Rate >= 50%
-            if [ "$PERCENT" -ge 50 ]; then
-              echo "FAIL: Error rate $PERCENT% exceeds 50%!"
-              exit 1
-            fi
-
-            # Threshold Check: Avg Time >= 2000ms
-            if [ "$AVG_TIME" -ge 2000 ]; then
-              echo "FAIL: Avg response time ${AVG_TIME}ms exceeds 2000ms!"
-              exit 1
-            fi
-            
-            echo "SUCCESS: Performance gates passed."
-          else
-            echo "FAIL: No 'sampleResult' tags found. Check your JMX execution log."
+          # 3. Handle empty/zero cases safely
+          if [ -z "$TOTAL" ] || [ "$TOTAL" -eq 0 ]; then
+            echo "FAIL: No 'sampleResult' tags found. JMeter did not generate results."
             exit 1
           fi
+          
+          # 4. Calculate stats
+          PERCENT=$((ERRORS * 100 / TOTAL))
+          AVG_TIME=$(awk -F't="' '/sampleResult/ {split($2,a,"\""); sum+=a[1]; count++} END {if (count > 0) print int(sum/count); else print 0}' results.jtl)
+
+          echo "--- Performance Summary ---"
+          echo "Total Requests: $TOTAL"
+          echo "Error Rate: $PERCENT%"
+          echo "Avg Response Time: ${AVG_TIME}ms"
+          
+          if [ "$PERCENT" -ge 50 ]; then
+            echo "FAIL: Error rate $PERCENT% exceeds 50%!"
+            exit 1
+          fi
+
+          if [ "$AVG_TIME" -ge 2000 ]; then
+            echo "FAIL: Avg response time ${AVG_TIME}ms exceeds 2000ms!"
+            exit 1
+          fi
+          
+          echo "SUCCESS: Performance gates passed."
 
       - name: Upload Test Results
         if: always()
