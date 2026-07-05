@@ -35,7 +35,7 @@
         </CacheManager>
         <hashTree/>
         <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="HTTP GET Request">
-          <stringProp name="HTTPSampler.domain">www.googlhgg</stringProp>
+          <stringProp name="HTTPSampler.domain">test.k6.io</stringProp>
           <stringProp name="HTTPSampler.protocol">https</stringProp>
           <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
           <stringProp name="HTTPSampler.method">GET</stringProp>
@@ -57,7 +57,7 @@
           </ResponseAssertion>
           <hashTree/>
           <DurationAssertion guiclass="DurationAssertionGui" testclass="DurationAssertion" testname="Duration Assertion">
-            <stringProp name="DurationAssertion.duration">2000</stringProp>
+            <stringProp name="DurationAssertion.duration">10</stringProp>
           </DurationAssertion>
           <hashTree/>
         </hashTree>
