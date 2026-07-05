@@ -5,65 +5,61 @@ jobs:
   jmeter-run:
     runs-on: ubuntu-latest
     steps:
-      # 1. Checkout your code
       - uses: actions/checkout@v4
 
-      # 2. Setup Java Environment
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      # 3. Download and Install JMeter
       - name: Install JMeter
         run: |
           wget https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-5.6.3.tgz
           tar -xzf apache-jmeter-5.6.3.tgz
 
-      # 4. Run JMeter in Non-GUI mode
-      # Ensures output is saved as XML for easy parsing
       - name: Run Performance Test
         run: |
           ./apache-jmeter-5.6.3/bin/jmeter -n -t test-plan.jmx -l results.jtl -e -o report/
 
-      # 5. Quality Gate: Threshold Validation
       - name: Check Performance Thresholds
         run: |
-          # Calculate Total Requests vs Errors
+          # Count total sampleResult tags (XML format)
           TOTAL=$(grep -c "sampleResult" results.jtl || echo 0)
+          
+          # Count only failures
           ERRORS=$(grep -c 's="false"' results.jtl || echo 0)
           
-          # Calculate Average Response Time (ms)
-          # Searches for t="..." attribute in the XML results
+          # Calculate avg response time, default to 0 if no results found
           AVG_TIME=$(awk -F't="' '/sampleResult/ {split($2,a,"\""); sum+=a[1]; count++} END {if (count > 0) print int(sum/count); else print 0}' results.jtl)
 
-          # Calculate Error Percentage
-          if [ $TOTAL -gt 0 ]; then
+          # Ensure TOTAL is treated as a number
+          if [ "$TOTAL" -gt 0 ]; then
             PERCENT=$((ERRORS * 100 / TOTAL))
-            echo "--- Performance Report ---"
+            
+            echo "--- Performance Summary ---"
             echo "Total Requests: $TOTAL"
             echo "Error Rate: $PERCENT%"
             echo "Avg Response Time: ${AVG_TIME}ms"
             
-            # Condition 1: Error Rate >= 50%
-            if [ $PERCENT -ge 50 ]; then
-              echo "FAIL: Error rate exceeded 50%!"
+            # Threshold Check: Error Rate >= 50%
+            if [ "$PERCENT" -ge 50 ]; then
+              echo "FAIL: Error rate $PERCENT% exceeds 50%!"
               exit 1
             fi
 
-            # Condition 2: Response Time >= 2000ms
-            if [ $AVG_TIME -ge 2000 ]; then
-              echo "FAIL: Average response time exceeded 2000ms!"
+            # Threshold Check: Avg Time >= 2000ms
+            if [ "$AVG_TIME" -ge 2000 ]; then
+              echo "FAIL: Avg response time ${AVG_TIME}ms exceeds 2000ms!"
               exit 1
             fi
+            
             echo "SUCCESS: Performance gates passed."
           else
-            echo "FAIL: No test results found."
+            echo "FAIL: No 'sampleResult' tags found. Check your JMX execution log."
             exit 1
           fi
 
-      # 6. Upload results as Artifacts
       - name: Upload Test Results
         if: always()
         uses: actions/upload-artifact@v4
